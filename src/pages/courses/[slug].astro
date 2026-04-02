@@ -8,21 +8,21 @@ export const prerender = false;
 <BaseLayout title="Course Details - C4C Campus" hideHeader={true} hideFooter={true}>
   <div class="min-h-screen bg-background">
     <!-- Internal Header -->
-    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm">
+    <header class="sticky top-0 z-50 bg-surface backdrop-blur-sm shadow-sm overflow-hidden">
       <div class="container mx-auto px-4 py-4">
-        <div class="flex items-center justify-between gap-4">
-          <div class="flex items-center gap-4 flex-1">
+        <div class="flex items-center justify-between gap-2 sm:gap-4">
+          <div class="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
             <a href="/dashboard" class="flex-shrink-0">
               <img src="/logo.jpeg" alt="C4C Campus" class="h-10 w-10 rounded-lg" />
             </a>
             <div class="min-w-0">
-              <h1 class="text-xl sm:text-2xl font-bold text-text truncate" id="course-title">Course</h1>
-              <p class="text-text-muted text-sm truncate" id="breadcrumb">Loading...</p>
+              <h1 class="text-base sm:text-2xl font-bold text-text truncate" id="course-title">Course</h1>
+              <p class="text-text-muted text-xs sm:text-sm truncate" id="breadcrumb">Loading...</p>
             </div>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <a href="/courses" class="hidden sm:block btn btn-ghost btn-sm">Back to Courses</a>
-            <button id="logout-btn" class="btn btn-ghost text-sm">Sign Out</button>
+            <button id="logout-btn" class="btn btn-ghost text-sm whitespace-nowrap">Sign Out</button>
           </div>
         </div>
       </div>
@@ -165,7 +165,7 @@ export const prerender = false;
               <label class="block text-sm font-medium mb-2">URL Slug*</label>
               <input type="text" id="lesson-slug" class="w-full border border-gray-300 rounded-lg px-4 py-2 bg-white" required />
               <p class="text-xs text-gray-500 mt-1">Auto-generated from lesson name</p>
-              <p id="slug-error" class="text-xs text-error mt-1 hidden">This URL slug is already used by another lesson in this module.</p>
+              <p id="slug-error" class="text-xs text-error mt-1 hidden">This URL already exists for another lesson, please change the URL.</p>
             </div>
 
             <div>
@@ -242,18 +242,23 @@ export const prerender = false;
   let slugValidationRequestId = 0;
 
   /**
-   * Validate that the lesson slug is unique within the current module.
+   * Validate that the lesson slug is globally unique across all lessons.
+   * Lesson URLs route at /lessons/{slug} so slugs must be unique globally, not just per module.
    * Returns true if valid (no duplicate), false if duplicate found.
    */
   async function validateLessonSlug(): Promise<boolean> {
     const slugInput = document.getElementById('lesson-slug') as HTMLInputElement;
     const slugError = document.getElementById('slug-error');
+    const saveBtn = document.querySelector('#lesson-form button[type="submit"]') as HTMLButtonElement | null;
     if (!slugInput || !slugError) return true;
 
     const slug = slugInput.value.trim();
-    const moduleId = currentModuleId ?? editingLesson?.module_id;
-    if (!slug || !moduleId) {
+    if (!slug) {
       slugError.classList.add('hidden');
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
       return true;
     }
 
@@ -261,7 +266,6 @@ export const prerender = false;
     let query = supabase
       .from('lessons')
       .select('id')
-      .eq('module_id', moduleId)
       .eq('slug', slug);
 
     // When editing, exclude the current lesson from the check
@@ -269,7 +273,7 @@ export const prerender = false;
       query = query.neq('id', editingLesson.id);
     }
 
-    const { data } = await query.limit(1);
+    const { data, error: queryError } = await query.limit(1);
 
     // Ignore stale async responses that return after the input has changed.
     const latestSlugInput = document.getElementById('lesson-slug') as HTMLInputElement | null;
@@ -278,11 +282,31 @@ export const prerender = false;
       return true;
     }
 
-    if (data && data.length > 0) {
+    // Fail closed on network/query error — block save until validation succeeds
+    if (queryError) {
+      slugError.textContent = 'Unable to verify slug uniqueness. Please try again.';
       slugError.classList.remove('hidden');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+      return false;
+    }
+
+    if (data && data.length > 0) {
+      slugError.textContent = 'This URL already exists for another lesson, please change the URL.';
+      slugError.classList.remove('hidden');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
       return false;
     } else {
       slugError.classList.add('hidden');
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
       return true;
     }
   }
@@ -1107,6 +1131,11 @@ export const prerender = false;
     slugValidationRequestId++;
     document.getElementById('lesson-modal')?.classList.add('hidden');
     document.getElementById('slug-error')?.classList.add('hidden');
+    const saveBtn = document.querySelector('#lesson-form button[type="submit"]') as HTMLButtonElement | null;
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
     editingLesson = null;
     currentModuleId = null;
   }
@@ -1128,7 +1157,7 @@ export const prerender = false;
     // Validate slug uniqueness before saving
     const isSlugValid = await validateLessonSlug();
     if (!isSlugValid) {
-      showToast('A lesson with this URL slug already exists in this module. Please use a different slug.', 'error');
+      // validateLessonSlug already shows an inline error message; no toast needed here
       return;
     }
 
@@ -1151,7 +1180,7 @@ export const prerender = false;
 
       if (error) {
         if (error.code === '23505') {
-          showToast('A lesson with this URL slug already exists in this module. Please use a different slug.', 'error');
+          showToast('This URL already exists for another lesson, please change the URL.', 'error');
         } else {
           showToast('Error updating lesson: ' + error.message, 'error');
         }
@@ -1164,7 +1193,7 @@ export const prerender = false;
 
       if (error) {
         if (error.code === '23505') {
-          showToast('A lesson with this URL slug already exists in this module. Please use a different slug.', 'error');
+          showToast('This URL already exists for another lesson, please change the URL.', 'error');
         } else {
           showToast('Error creating lesson: ' + error.message, 'error');
         }

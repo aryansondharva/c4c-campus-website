@@ -595,7 +595,8 @@ CREATE TABLE IF NOT EXISTS lessons (
   resources JSONB DEFAULT '[]',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(module_id, slug)
+  UNIQUE(module_id, slug),
+  CONSTRAINT unique_lessons_slug UNIQUE (slug)
 );
 
 CREATE INDEX IF NOT EXISTS idx_lessons_module ON lessons(module_id, order_index);

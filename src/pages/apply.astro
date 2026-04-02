@@ -55,9 +55,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               <strong>What we're looking for:</strong> Curiosity about building compassionate AI.
               Commitment to animal advocacy, climate action, and/or AI safety. No technical skills required.
             </p>
-            <p class="text-sm text-text-muted">
-              <strong>Full scholarships available</strong> for SCs, OBCs, EWS, DNTs, and the Transgender community.
-            </p>
           </div>
 
           <form id="bootcamp-form" class="space-y-6">
@@ -131,29 +128,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               </p>
             </div>
 
-
-            <!-- Scholarship Section -->
-            <div class="border border-border rounded-lg p-4 bg-surface/50">
-              <h4 class="font-bold mb-2">Scholarship Application (Optional)</h4>
-              <p class="text-sm text-text-muted mb-3">Full scholarships available for SCs, OBCs, EWS, DNTs, and the Transgender community.</p>
-
-              <label class="flex items-center gap-2 mb-3">
-                <input type="checkbox" id="scholarship-requested" name="scholarshipRequested" />
-                <span>I would like to apply for a scholarship</span>
-              </label>
-
-              <div id="scholarship-category-container" class="hidden">
-                <label for="scholarship-category" class="block font-medium mb-2">Eligibility Category *</label>
-                <select id="scholarship-category" name="scholarshipCategory" class="w-full px-4 py-3 border border-border rounded-lg">
-                  <option value="">Select your category...</option>
-                  <option value="SC">SC (Scheduled Caste)</option>
-                  <option value="OBC">OBC (Other Backward Class)</option>
-                  <option value="EWS">EWS (Economically Weaker Section)</option>
-                  <option value="DNT">DNT (De-notified Tribes)</option>
-                  <option value="Transgender">Transgender</option>
-                </select>
-              </div>
-            </div>
 
             <div>
               <label class="block font-bold mb-2">Why do you want to learn to engineer compassion? *</label>
@@ -764,10 +738,6 @@ async function handleFormSubmit(e: Event, program: string) {
     data.commitment = formData.get('commitment');
     data.protectedClass = formData.get('protectedClass');
     data.careerGoals = formData.get('careerGoals');
-    // Scholarship fields
-    const scholarshipCheckbox = form.querySelector('#scholarship-requested') as HTMLInputElement | null;
-    data.scholarshipRequested = scholarshipCheckbox?.checked || false;
-    data.scholarshipCategory = data.scholarshipRequested ? formData.get('scholarshipCategory') : null;
   } else if (program === 'accelerator') {
     data.track = formData.get('track');
     data.projectName = formData.get('projectName');
@@ -795,12 +765,6 @@ async function handleFormSubmit(e: Event, program: string) {
   const whatsappValue = data.whatsapp as string | null;
   if (whatsappValue && (whatsappValue.toLowerCase() === 'n/a' || whatsappValue.toLowerCase() === 'na')) {
     toast.warning('Please leave WhatsApp field empty if you don\'t have one, rather than entering "n/a"', 'Validation Warning');
-    return;
-  }
-
-  // Validate scholarship category if scholarship is requested
-  if (data.scholarshipRequested && !data.scholarshipCategory) {
-    toast.error('Please select your eligibility category for the scholarship.', 'Validation Error');
     return;
   }
 
@@ -908,23 +872,6 @@ async function handleFormSubmit(e: Event, program: string) {
 // Attach handlers
 document.getElementById('bootcamp-form')?.addEventListener('submit', (e) => handleFormSubmit(e, 'bootcamp'));
 document.getElementById('accelerator-form')?.addEventListener('submit', (e) => handleFormSubmit(e, 'accelerator'));
-
-// Scholarship checkbox toggle
-const scholarshipCheckbox = document.getElementById('scholarship-requested');
-const scholarshipCategoryContainer = document.getElementById('scholarship-category-container');
-const scholarshipCategorySelect = document.getElementById('scholarship-category');
-
-scholarshipCheckbox?.addEventListener('change', (e) => {
-  const isChecked = (e.target as HTMLInputElement).checked;
-  if (isChecked) {
-    scholarshipCategoryContainer?.classList.remove('hidden');
-  } else {
-    scholarshipCategoryContainer?.classList.add('hidden');
-    if (scholarshipCategorySelect) {
-      (scholarshipCategorySelect as HTMLSelectElement).value = '';
-    }
-  }
-});
 
 // Hide bootcamp start notice after a certain date
 const bootcampStartNotice = document.getElementById('bootcamp-start-notice');

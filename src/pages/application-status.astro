@@ -496,23 +496,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             </select>
           </div>
           <div>
-            <label class="flex items-center gap-2 text-sm font-medium mb-2">
-              <input type="checkbox" name="scholarshipRequested" ${userApplication.scholarship_requested ? 'checked' : ''} class="rounded">
-              <span>Request Scholarship</span>
-            </label>
-          </div>
-          <div id="scholarship-category-field" class="${userApplication.scholarship_requested ? '' : 'hidden'}">
-            <label class="block text-sm font-medium mb-2">Scholarship Category</label>
-            <select name="scholarshipCategory" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-              <option value="">Select category</option>
-              <option value="SC" ${userApplication.scholarship_category === 'SC' ? 'selected' : ''}>SC (Scheduled Caste)</option>
-              <option value="OBC" ${userApplication.scholarship_category === 'OBC' ? 'selected' : ''}>OBC (Other Backward Class)</option>
-              <option value="EWS" ${userApplication.scholarship_category === 'EWS' ? 'selected' : ''}>EWS (Economically Weaker Section)</option>
-              <option value="DNT" ${userApplication.scholarship_category === 'DNT' ? 'selected' : ''}>DNT (Denotified Tribes)</option>
-              <option value="Transgender" ${userApplication.scholarship_category === 'Transgender' ? 'selected' : ''}>Transgender</option>
-            </select>
-          </div>
-          <div>
             <label class="block text-sm font-medium mb-2">Do you identify as part of a protected class? *</label>
             <select name="protectedClass" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
               <option value="">Select...</option>
@@ -632,21 +615,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
       formFields.innerHTML = html;
       
-      // Add scholarship category toggle listener for bootcamp
-      if (userApplication.program === 'bootcamp') {
-        const scholarshipCheckbox = formFields.querySelector('input[name="scholarshipRequested"]');
-        const scholarshipCategoryField = document.getElementById('scholarship-category-field');
-        
-        scholarshipCheckbox?.addEventListener('change', (e) => {
-          const target = e.target as HTMLInputElement;
-          if (target.checked) {
-            scholarshipCategoryField?.classList.remove('hidden');
-          } else {
-            scholarshipCategoryField?.classList.add('hidden');
-          }
-        });
-      }
-      
       modal?.classList.remove('hidden');
     }
 
@@ -681,8 +649,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         updates.motivation = formData.get('motivation');
         updates.technical_experience = formData.get('technicalExperience');
         updates.commitment = formData.get('commitment');
-        updates.scholarship_requested = formData.get('scholarshipRequested') === 'on';
-        updates.scholarship_category = updates.scholarship_requested ? formData.get('scholarshipCategory') : null;
         updates.protected_class = formData.get('protectedClass');
         updates.career_goals = formData.get('careerGoals');
       } else if (userApplication.program === 'accelerator') {

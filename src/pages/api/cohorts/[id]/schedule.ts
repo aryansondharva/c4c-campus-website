@@ -82,29 +82,54 @@ async function notifyCohortStudents(
       console.error('[schedule] Error inserting notifications:', notifError);
     }
 
-    // Fetch student emails from applications table
-    const { data: applications } = await supabaseAdmin
-      .from('applications')
-      .select('user_id, name, email')
-      .in('user_id', userIds);
+    // Fetch student emails — check profiles first, fall back to applications
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, full_name')
+      .in('id', userIds);
 
-    const appMap = new Map(
-      (applications || []).map((a: any) => [a.user_id, a])
-    );
+    if (profilesError) {
+      console.error('[schedule] Error fetching profiles:', profilesError);
+      return;
+    }
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+    const missingEmailUserIds = userIds.filter((uid: string) => !profileMap.get(uid)?.email);
+    let appMap = new Map<string, any>();
+    if (missingEmailUserIds.length > 0) {
+      const { data: applications, error: applicationsError } = await supabaseAdmin
+        .from('applications')
+        .select('user_id, name, email')
+        .in('user_id', missingEmailUserIds);
+
+      if (applicationsError) {
+        console.error('[schedule] Error fetching applications:', applicationsError);
+        return;
+      }
+
+      appMap = new Map((applications || []).map((a: any) => [a.user_id, a]));
+    }
 
     // Send emails (fire-and-forget to avoid blocking the API response)
     for (const userId of userIds) {
+      const profile = profileMap.get(userId);
       const app = appMap.get(userId);
-      if (app?.email) {
+      const email = profile?.email || app?.email;
+      const name = profile?.full_name || app?.name || 'Student';
+
+      if (email) {
         sendModuleUnlockedEmail({
-          studentName: app.name || 'Student',
-          studentEmail: app.email,
+          studentName: name,
+          studentEmail: email,
           courseName,
           moduleName,
           courseSlug,
         }).catch((err: any) => {
-          console.error(`[schedule] Failed to send email to ${app.email}:`, err);
+          console.error('[schedule] Failed to send email notification:', err);
         });
+      } else {
+        console.warn('[schedule] No email found for a student, skipping notification');
       }
     }
 
