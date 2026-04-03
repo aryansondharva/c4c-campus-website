@@ -58,19 +58,30 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <script is:inline>
       (function() {
         try {
-          const lang = localStorage.getItem('preferredLanguage');
+          // Backward compatibility: check localStorage first, then fallback to sessionStorage (and migrate)
+          let lang = null;
+          try {
+            lang = localStorage.getItem('preferredLanguage');
+            if (!lang) {
+              lang = sessionStorage.getItem('preferredLanguage');
+              if (lang) localStorage.setItem('preferredLanguage', lang); // Migrate to local
+            }
+          } catch (storageErr) {
+            // LocalStorage might be blocked in some browsers (incognito, etc)
+            console.warn('[C4C-Translate] Storage access failed:', storageErr.name);
+          }
+          
           if (lang && lang !== 'en') {
             document.documentElement.classList.add('is-translating');
           }
-        } catch (e) {}
+        } catch (e) {
+          // Only catch unexpected fatal errors, don't swallow everything silently
+          if (!(e instanceof DOMException)) console.error('[C4C-Translate] Boot error:', e);
+        }
       })();
     </script>
-
     <!-- Theme Color -->
     <meta name="theme-color" content="#FF00FF" />
-
-    <!-- Google Translate target div (must always exist for widget initialization) -->
-    <div id="google_translate_element" style="display: none;"></div>
 
     <script is:inline type="text/javascript">
       function googleTranslateElementInit() {
@@ -131,8 +142,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           translateContainer.innerHTML = '';
         }
 
-        // Remove the preferred language from local storage to prevent auto-reapply
-        localStorage.removeItem('preferredLanguage');
+        // Persist English selection to prevent auto-detection from overriding it
+        localStorage.setItem('preferredLanguage', 'en');
 
         // Force a reload with clean URL
         const newUrl = window.location.origin + window.location.pathname + '?t=' + new Date().getTime();
@@ -179,9 +190,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               let checkAttempts = 0;
               const checkInterval = setInterval(() => {
                 checkAttempts++;
-                if (document.documentElement.classList.contains('translated-ltr') || 
-                    document.documentElement.classList.contains('translated-rtl') || 
-                    checkAttempts > 30) {
+                const isTranslated = document.documentElement.classList.contains('translated-ltr') || 
+                                   document.documentElement.classList.contains('translated-rtl') ||
+                                   document.body.classList.contains('translated-ltr') ||
+                                   document.body.classList.contains('translated-rtl');
+                
+                if (isTranslated || checkAttempts > 30) {
                   document.documentElement.classList.remove('is-translating');
                   clearInterval(checkInterval);
                 }
@@ -201,18 +215,23 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
         if (preferredLang && preferredLang !== 'en') {
           applyLang(preferredLang);
-        } else {
-          // No preferred lang or English, make sure we show the page
+        } else if (preferredLang === 'en') {
+          // Explicit English, don't auto-detect
           document.documentElement.classList.remove('is-translating');
+        } else {
+          // No preference set, try auto-detection
+          let browserLang = navigator.language.split('-')[0];
+          // Normalize zh to zh-CN
+          if (browserLang === 'zh') browserLang = 'zh-CN';
           
-          if (!preferredLang) {
-            // Automatic detection if no preference set
-            const browserLang = navigator.language.split('-')[0];
-            const supported = ['hi', 'ta', 'te', 'kn', 'bn', 'mr', 'gu', 'ml', 'pa', 'or', 'as', 'ur', 'es', 'fr', 'de', 'pt', 'zh-CN', 'ja', 'ko', 'ar'];
-            if (supported.includes(browserLang)) {
-              console.log('[C4C-Translate] Auto-applying detected browser language:', browserLang);
-              applyLang(browserLang); 
-            }
+          const supported = ['hi', 'ta', 'te', 'kn', 'bn', 'mr', 'gu', 'ml', 'pa', 'or', 'as', 'ur', 'es', 'fr', 'de', 'pt', 'zh-CN', 'ja', 'ko', 'ar'];
+          
+          if (supported.includes(browserLang)) {
+            console.log('[C4C-Translate] Auto-applying detected browser language:', browserLang);
+            document.documentElement.classList.add('is-translating'); // Protect against flicker for auto-detect
+            applyLang(browserLang); 
+          } else {
+            document.documentElement.classList.remove('is-translating');
           }
         }
 
@@ -291,7 +310,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               <option value="mr">मराठी</option>
               <option value="gu">ગુજરાતી</option>
               <option value="ml">മലയാളം</option>
-              <option value="pa">ਪੰਜਾਬी</option>
+              <option value="pa">ਪੰਜਾਬੀ</option>
+              <option value="or">ଓଡ଼ିଆ</option>
+              <option value="as">অসমীয়া</option>
+              <option value="ur">اردو</option>
               <option value="es">Esp</option>
               <option value="fr">Fra</option>
               <option value="de">Deu</option>
@@ -337,6 +359,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                 <option value="gu">ગુજરાતી</option>
                 <option value="ml">മലയാളം</option>
                 <option value="pa">ਪੰਜਾਬੀ</option>
+                <option value="or">ଓଡ଼ିଆ (Odia)</option>
+                <option value="as">অসমীয়া (Assamese)</option>
+                <option value="ur">اردو (Urdu)</option>
                 <option value="es">Español</option>
                 <option value="fr">Français</option>
                 <option value="de">Deutsch</option>
@@ -381,6 +406,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                 <option value="gu">ગુજરાતી</option>
                 <option value="ml">മലയാളം</option>
                 <option value="pa">ਪੰਜਾਬੀ</option>
+                <option value="or">ଓଡ଼ିଆ (Odia)</option>
+                <option value="as">অসমীয়া (Assamese)</option>
+                <option value="ur">اردو (Urdu)</option>
                 <option value="es">Español</option>
                 <option value="fr">Français</option>
                 <option value="de">Deutsch</option>
